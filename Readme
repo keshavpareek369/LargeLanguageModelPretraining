@@ -1,0 +1,244 @@
+# 🩺 Medical Language Model Fine-Tuning
+
+This repository presents the complete training pipeline used to transform the original GPT-2 124M model into a medical-domain instruction-following language model.
+
+The project follows a four-stage alignment pipeline:
+
+```
+GPT-2 124M
+      │
+      ▼
+Domain Adaptive Pretraining (DAPT)
+      │
+      ▼
+Instruction Fine-Tuning (IFT)
+      │
+      ▼
+Direct Preference Optimization (DPO)
+```
+
+---
+
+# Model Overview
+
+| Model | Description |
+|--------|-------------|
+| GPT-2 124M | Original OpenAI GPT-2 baseline |
+| DAPT | Domain Adaptive Pretraining on medical/scientific corpus |
+| IFT | Instruction Fine-Tuning using medical QA instruction dataset |
+| DPO | Preference Alignment using chosen/rejected responses |
+
+---
+
+# Evaluation Metrics
+
+The models are evaluated on:
+
+- MMLU
+- MedMCQA
+- HumanEval
+- Preference Accuracy
+- Preference Margin
+- TruthfulQA
+- Safety
+- End-of-Thought (EOT)
+- Repetition Rate
+
+---
+
+# Results
+
+| Stage | MMLU | MedMCQA | HumanEval | Pref Acc | Margin | Truthful | Safety | EOT | Repeat |
+|------|------|---------|-----------|----------|--------|----------|--------|-----|---------|
+| **GPT-2 124M** | XX.X | XX.X | XX.X | XX.X | XX.X | XX.X | XX.X | XX.X | XX.X |
+| **DAPT** | **28.9** | **29.2** | **0.0** | **49.3** | **-0.010** | **45.0** | **33.3** | **20.0** | **0.1** |
+| **IFT** | **26.1** | **27.6** | **0.0** | **44.7** | **-0.062** | **39.0** | **83.3** | **60.0** | **0.0** |
+| **DPO** | **25.5** | **27.8** | **0.0** | **55.3** | **0.029** | **35.0** | **33.3** | **40.0** | **0.0** |
+
+---
+
+# Performance Graphs
+
+## Overall Comparison
+
+<p align="center">
+<img src="graphs/overall_metrics.png" width="850">
+</p>
+
+---
+
+## MMLU Comparison
+
+<p align="center">
+<img src="graphs/mmlu.png" width="700">
+</p>
+
+---
+
+## Medical Knowledge (MedMCQA)
+
+<p align="center">
+<img src="graphs/medmcqa.png" width="700">
+</p>
+
+---
+
+## Preference Alignment
+
+<p align="center">
+<img src="graphs/preference_accuracy.png" width="700">
+</p>
+
+---
+
+## Truthfulness
+
+<p align="center">
+<img src="graphs/truthfulqa.png" width="700">
+</p>
+
+---
+
+## Safety
+
+<p align="center">
+<img src="graphs/safety.png" width="700">
+</p>
+
+---
+
+## EOT Prediction
+
+<p align="center">
+<img src="graphs/eot.png" width="700">
+</p>
+
+---
+
+## Repetition Rate
+
+<p align="center">
+<img src="graphs/repetition.png" width="700">
+</p>
+
+---
+
+# Key Observations
+
+### Domain Adaptive Pretraining (DAPT)
+
+- Highest MMLU score (28.9%)
+- Highest MedMCQA accuracy (29.2%)
+- Best TruthfulQA score (45%)
+- Limited alignment capability
+
+---
+
+### Instruction Fine-Tuning (IFT)
+
+- Large improvement in Safety (83.3%)
+- Better instruction following
+- Lower factual knowledge compared to DAPT
+- Preference accuracy decreased
+
+---
+
+### Direct Preference Optimization (DPO)
+
+- Highest Preference Accuracy (55.3%)
+- Positive preference margin (+0.029)
+- Reduced repetition
+- Better response alignment
+- Slight reduction in benchmark accuracy due to alignment trade-off
+
+---
+
+# Training Pipeline
+
+```
+GPT-2 124M
+      │
+      ▼
+Wikipedia Pretraining
+      │
+      ▼
+Medical Domain Adaptive Pretraining
+      │
+      ▼
+Medical Instruction Fine-Tuning
+      │
+      ▼
+Direct Preference Optimization
+      │
+      ▼
+Final Medical Chat Model
+```
+
+---
+
+# Datasets
+
+### DAPT
+
+- PubMed
+- Medical Papers
+- Biomedical Articles
+
+### IFT
+
+- Medical QA
+- Instruction Datasets
+- Doctor-Patient Conversations
+
+### DPO
+
+- HuggingFaceH4/UltraFeedback Binarized
+- Medical Preference Dataset
+
+---
+
+# Repository Structure
+
+```
+.
+├── data/
+├── checkpoints/
+├── evaluation/
+├── graphs/
+│   ├── overall_metrics.png
+│   ├── mmlu.png
+│   ├── medmcqa.png
+│   ├── preference_accuracy.png
+│   ├── truthfulqa.png
+│   ├── safety.png
+│   ├── eot.png
+│   └── repetition.png
+├── training/
+├── inference/
+└── README.md
+```
+
+---
+
+# Future Work
+
+- Reinforcement Learning from Human Feedback (RLHF)
+- Larger medical datasets
+- Retrieval-Augmented Generation (RAG)
+- Medical reasoning benchmarks
+- Clinical dialogue optimization
+
+---
+
+# Citation
+
+If you use this repository, please cite this project accordingly.
+
+```
+@misc{MedicalGPT2026,
+  title={Medical GPT-2 Fine-Tuning using DAPT, IFT and DPO},
+  year={2026}
+}
+```
+
+---
