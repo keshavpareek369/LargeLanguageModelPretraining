@@ -41,100 +41,64 @@ This repo documents an iterative, from-scratch journey through building GPT-styl
 
 ---
 
-## Experiment Timeline
+## Architectures Explained
+1. **End-to-End Alignment Pipeline — `MLA-with_DAPT_IFT_DPO_Evaluation_70M.ipynb`** Full LLM pipeline: Pretrain → DAPT → IFT → DPO → Eval
+   - **Base Model Architecture:** Multi-head Latent Attention (MLA) backbone (`n_embd=512`, `n_head=8`, `n_layer=6`, `block_size=512`) featuring low-rank Q/KV compression, decoupled RoPE, and RMSNorm.
+   - **Stage 1: Domain-Adaptive Pretraining (DAPT)**
+     - **Dataset:** PubMed corpus (`ccdv/pubmed-summarization`), streamed and tokenized using GPT-2 encoding into a 5GB (~1.34B tokens) memory-mapped (`np.memmap`) binary dataset.
+     - **Objective:** Continues self-supervised next-token prediction starting from the general Wikipedia-pretrained checkpoint to adapt vocabulary and latent representations to medical/scientific literature.
+   - **Stage 2: Instruction Fine-Tuning (IFT)**
+     - **Datasets:** Aggregates 5 real-world medical QA sources: PubMedQA (`pubmed_qa`), Medical Meadow WikiDoc (`medalpaca/medical_meadow_wikidoc`), Medical Meadow Flashcards, Medical Meadow Patient Info, and ChatDoctor (`lavita/ChatDoctor-HealthCareMagic-100k`).
+     - **Loss Mechanics:** Implements **Prompt Masking**. Prompts are formatted as `### Instruction:\n{instruction}\n\n### Response:\n{response}`. Target label tokens corresponding to the instruction are assigned `IGNORE_INDEX` (`-1`), ensuring `F.cross_entropy` loss is calculated **strictly on response tokens**, preventing model capacity waste on prompt prediction.
+   - **Stage 3: Direct Preference Optimization (DPO)**
+     - **Dataset:** Preference pairs from `TsinghuaC3I/UltraMedical-Preference` (`chosen` vs. `rejected` medical responses).
+     - **Loss Mechanics:** Trains the active policy model against a **frozen deep-copy reference model** (initialized from the post-IFT checkpoint). Maximizes the reward margin using the standard DPO loss:
+       $$\mathcal{L}_{\text{DPO}} = -\log \sigma \left( \beta \cdot \left[ \left(\log \pi_\theta(y_w|x) - \log \pi_{\text{ref}}(y_w|x)\right) - \left(\log \pi_\theta(y_l|x) - \log \pi_{\text{ref}}(y_l|x)\right) \right] \right)$$
+       with prompt masking applied to evaluate per-sequence log probabilities strictly over response tokens.
+   - **Stage 4: Comprehensive Evaluation Suite (Capability + Alignment)**
+     - **Capability Metrics:**
+       - **MMLU (`cais/mmlu`):** Multiple-choice general knowledge across 57 subjects (likelihood scoring).
+       - **MedMCQA (`openlifescienceai/medmcqa`):** Domain-specific medical entrance exam QA (likelihood scoring).
+       - **HumanEval (`openai_humaneval`):** Python coding capability evaluated via functional execution (`pass@1`).
+     - **Alignment Metrics:**
+       - **Preference Accuracy & Reward Margin:** Evaluated on held-out test pairs from `UltraMedical-Preference`.
+       - **TruthfulQA (`truthful_qa`):** Measuring resistance to common misconceptions and hallucinations.
+       - **Safety Check:** Evaluated on medical-domain risk prompts for appropriate disclaimers and refusal rates.
+       - **Format Adherence & Degeneracy:** Measures End-Of-Text stopping rates and n-gram repetition percentages.
 
-### 1. Character-level Bigram baseline (Hindi)
+2. **Multi-Head Attention (MHA) — `MHA_70M.ipynb`**
+   - **Components:** MHA (scaled dot-product, causal mask), RMSNorm (pre-norm), learned absolute positional embeddings, GELU FFN (4× expansion), AdamW with cosine LR decay, mixed-precision (AMP), gradient accumulation, memmap data loading.
+   - **Benefits:** Provides the standard baseline — each head independently learns Q/K/V projections giving maximum representational flexibility. Simple to implement and debug, making it the reference point for comparing all other variants.
 
-The very first model: a minimal GPT (misleadingly named `BigramLanguageModel`, following Karpathy's nanoGPT lecture) operating directly on **characters**, no tokenizer.
+3. **Grouped-Query Attention (GQA) — `GQA_68M.ipynb`**
+   - **Components:** GQA (`n_kv_heads = n_head // 4`, KV heads repeated to match query heads), RoPE (rotary positional embeddings, precomputed cos/sin buffers), RMSNorm (pre-norm), GELU FFN (4× expansion), **no learned positional embeddings**, memmap data loading.
+   - **Benefits:** Reduces the KV cache size by 4× compared to MHA (fewer KV heads) while preserving per-query expressivity. RoPE replaces absolute positional embeddings, encoding relative position directly into the attention scores — this generalizes better and avoids the RoPE + absolute embedding conflict found in early experiments.
 
-| Setting | Value |
-|---|---|
-| Vocab | 156 raw Hindi/Latin characters |
-| `n_embd` / `n_head` / `n_layer` | 256 / 4 / 6 |
-| `block_size` | 512 |
-| Params | 4.95M |
-| Iterations | 12,000 |
-| Final val loss | 1.363 |
+4. **Multi-head Latent Attention (MLA) — `MLA_70M.ipynb`**
+   - **Components:** MLA with low-rank Q compression (`W_dq`, `W_uq`, `q_layernorm`) and low-rank KV compression (`W_dkv`, `W_ukv`, `kv_layernorm`), decoupled RoPE (applied only to a slice of each head: `qk_rope_dim`), RMSNorm (pre-norm), GELU FFN (4× expansion), **no learned positional embeddings**, memmap data loading.
+   - **Benefits:** Aggressively compresses the KV cache by projecting K and V through a shared low-rank bottleneck before up-projecting — the stored latent is much smaller than full KV pairs. The decoupled RoPE design applies rotary encoding to only half the head dimension, leaving the other half as "nope" (non-positional) features that can carry content-only information. Best validation loss (3.29) among all English variants.
 
-**Purpose:** sanity-check the training loop, attention implementation, and generation code end-to-end before investing in tokenization or scale. Output text is fluent-looking Devanagari script but not semantically coherent — expected at this scale/data budget.
+5. **K=V Attention — `K=V_attention.ipynb`**
+   - **Components:** Causal attention with V reused from K (only `q_proj` and `k_proj`, no `v_proj`), SwiGLU FFN (gated activation: `SiLU(x₁) * x₂`, 4× expansion), RMSNorm (pre-norm), learned positional embeddings (`nn.Parameter`), memmap data loading.
+   - **Benefits:** Eliminates the entire V projection — halving KV parameter count and memory. SwiGLU replaces GELU in the feed-forward block, providing a gated nonlinearity that has been shown to improve training efficiency in modern LLMs (PaLM, LLaMA). This notebook serves as an architectural probe to test these two ideas at small scale.
 
-### 2. BPE tokenizer + deeper GPT (Hindi)
+6. **Character-level Hindi — `Hindi-char-llm-5m.ipynb`**
+   - **Components:** MHA (per-head Q/K/V with causal mask), LayerNorm (pre-norm), learned absolute positional embeddings, GELU FFN (4× expansion), raw character vocabulary (156 chars).
+   - **Benefits:** Zero-dependency baseline — no tokenizer needed. Validates the full training pipeline end-to-end (attention, loss, generation) before investing in tokenization or scale. Uses LayerNorm (not RMSNorm), following the original nanoGPT design.
 
-Replaced character-level encoding with a **custom-trained 45k-vocab BPE tokenizer** (via `tokenizers` library) and scaled the model up.
+7. **BPE Hindi — `Hindi-bytepair-LLM-72m.ipynb`**
+   - **Components:** MHA (per-head Q/K/V with causal mask), LayerNorm (pre-norm), learned absolute positional embeddings, GELU FFN (4× expansion), custom BPE tokenizer (45k vocab, trained on Hindi Wikipedia), two-pass memmap tokenization, resumable checkpointing.
+   - **Benefits:** BPE compresses Hindi text ~10× vs characters, giving the model far more context per sequence. The two-pass memmap strategy (count tokens → pre-allocate → write) handles multi-GB corpora without loading everything into RAM. Resumable training from checkpoint enables long runs on time-limited platforms like Kaggle.
 
-| Setting | Value |
-|---|---|
-| Tokenizer | Custom BPE, 45,000 vocab, trained on Hindi Wikipedia |
-| Dataset | `wikipedia_hindi_500mb.txt` → 45.7M tokens (memmap, `int32`) |
-| `n_embd` / `n_head` / `n_layer` | 512 / 8 / 8 |
-| `block_size` | 1024 |
-| Params | 71.86M |
-| Iterations | 80,000 (resumed training from iter 52,001) |
-| Final val loss / PPL | 4.087 / 59.56 |
-
-Two-pass tokenization strategy: pass 1 counts total tokens to pre-allocate a `np.memmap`; pass 2 streams the file in 200k-character chunks and writes directly into the memmap, avoiding ever holding the full tokenized corpus in RAM. Checkpointing is resumable (`checkpoint_last.pt` stores `iter`, optimizer state, and loss history).
-
-### 3. Memmap-based English pretraining
-
-Moved to **English Wikipedia** (`jklu-en-memap-5gb`, ~1.2B GPT-2-tokenizer tokens) to get a larger, higher-quality pretraining corpus, and switched to `tiktoken`'s `gpt2` encoding (50,257 vocab) instead of a custom tokenizer.
-
-| Setting | Value |
-|---|---|
-| Tokenizer | `tiktoken` GPT-2 (50,257 vocab) |
-| Dataset | 1,202,932,080 tokens (90/10 train/val split) |
-| `n_embd` / `n_head` / `n_layer` | 512 / 8 / 6 |
-| `block_size` | 512 |
-| Params | 70.63M |
-| Iterations | 75,000 (~9.6 hours on a Tesla P100) |
-| Final val loss / PPL | 3.558 / 35.09 |
-
-This version still used **learned absolute position embeddings** + standard scaled dot-product multi-head attention + RMSNorm, and produced noticeably more coherent English completions than the Hindi character model (e.g., plausible-sounding institutional/historical prose).
-
-### 4. Architecture experiments (RMSNorm, GQA, MLA, RoPE, SwiGLU)
-
-With the training loop and data pipeline stable, the focus shifted to attention/normalization architecture, testing four variants on the same English Wikipedia memmap corpus:
-
-| Variant | Key idea | Params | Final Val Loss | Val PPL |
-|---|---|---|---|---|
-| **MHA + absolute pos-emb** (Section 3) | Standard multi-head attention, learned position embeddings, RMSNorm | 70.63M | 3.558 | 35.09 |
-| **GQA + RoPE** | Grouped-Query Attention (`n_kv_heads = n_head // 4`) with Rotary Position Embeddings, no absolute pos-emb | 68.01M | 3.311 | 27.41 |
-| **MLA (DeepSeek-style)** | Low-rank joint Q/KV compression (`q_proj_dim`, `kv_proj_dim`) + decoupled RoPE on a slice of each head, `scaled_dot_product_attention` | 69.94M | 3.292 | 26.90 |
-| **SwiGLU FFN + V=K attention** | Gated SwiGLU feed-forward, causal attention where V is reused from K (halves KV parameters), smaller-scale sanity run | 4.9M (small config) | — (dataset-limited run) | — |
-
-Key fix carried through this stage: an early bug had both **learned absolute position embeddings and RoPE active at the same time**, which conflict with each other (RoPE already encodes relative position; adding an absolute embedding on top distorts it). Removing the absolute position embedding when RoPE is present was one of the more impactful fixes.
-
-Both **GQA+RoPE** and **MLA** clearly outperformed the vanilla MHA+absolute-embedding baseline at the same/similar parameter count and training budget — consistent with published results showing that better positional encoding (RoPE) and more parameter-efficient attention (GQA/MLA) both matter more than raw model size at this scale.
-
-### 5. Full LLM pipeline: Pretrain → DAPT → IFT → DPO → Eval
-
-The final and most complete stage builds an actual **domain-adapted, instruction-tuned, preference-aligned model** using the MLA architecture as the backbone:
-
-```
-Wikipedia Pretraining (general English, 1.2B tokens)
-        │
-        ▼
-Domain-Adaptive Pretraining (DAPT)   — 5GB of PubMed full-text articles
-        │                              (streamed, tokenized, memmap'd)
-        ▼
-Instruction Fine-Tuning (IFT)        — 50k–500k instruction/response pairs
-        │                              from PubMedQA, WikiDoc, Medical
-        │                              Flashcards, MedQuAD, ChatDoctor
-        │                              (prompt-masked loss)
-        ▼
-Direct Preference Optimization (DPO) — TsinghuaC3I/UltraMedical-Preference
-        │                              (chosen vs. rejected pairs, frozen
-        │                               reference model = post-IFT checkpoint)
-        ▼
-Evaluation Suite
-   • MMLU              (general knowledge, multiple-choice)
-   • MedMCQA           (medical domain multiple-choice)
-   • HumanEval         (code generation, pass@1, sandboxed exec w/ timeout)
-   • Preference Accuracy & Reward Margin (held-out DPO pairs)
-   • TruthfulQA (MC1)  (resistance to common misconceptions)
-   • Safety / Harm-Avoidance (medical-risk prompt probes, keyword-based caution scoring)
-   • Format Adherence & Degeneracy (EOT stop-rate, token repetition rate)
-```
-
+    
+| Variant | Key idea | Params | Final Val Loss | Val PPL | training time | RAM | GPU | Total Tokens |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **MHA_70M** | Standard multi-head attention | ~70.6M | 3.5580 | 35.09 | 9.61h | - | Tesla P100-PCIE-16GB | ~1.2B |
+| **GQA_68M** | Grouped-Query Attention | 68.0M | 3.3109 | 27.41 | - | - | - | ~1.2B |
+| **MLA_70M** | DeepSeek-style Q/KV compression | 69.9M | 3.2922 | 26.90 | - | - | - | ~1.2B |
+| **K=V_attention** | Shared Key and Value vectors | - | - | - | - | - | - | - |
+| **Hindi-bytepair-LLM** | Custom BPE tokenizer for Hindi | 71.86M | 4.0870 | 59.56 | - | - | Tesla P100-PCIE-16GB | ~45.6M |
+| **Hindi-char-llm** | Character-level GPT for Hindi | 4.9M | 1.3630 | - | - | - | - | - |
 #### Pipeline details
 
 - **DAPT:** Streams `ccdv/pubmed-summarization` via HuggingFace `datasets` (streaming mode, no full download), tokenizes with the *same* GPT-2 tokenizer used in pretraining for checkpoint compatibility, and stops once a 5GB / ~1.34B-token target is reached. Resumes from the pretraining checkpoint with **partial state-dict loading** (loads only tensors whose keys and shapes match — useful when architecture details shift slightly between stages).
