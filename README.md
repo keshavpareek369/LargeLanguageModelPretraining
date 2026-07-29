@@ -77,4 +77,5 @@ This repo documents an iterative, from-scratch journey through building GPT-styl
 | **Hindi-bytepair-LLM** | Custom BPE tokenizer for Hindi | 71.86M | 4.0870 | 59.56 | 6h 26m 39s | 80k | Tesla P100-PCIE-16GB | ~45.6M |
 | **Hindi-char-llm** | Character-level GPT for Hindi | 4.9M | 1.3630 | 1.3630 | 23m 30s | 12k | Tesla P100-PCIE-16GB | - |
 
-- Datasets: Hindi & English Wikipedia dumps, `ccdv/pubmed-summarization`, PubMedQA, Medical Meadow (WikiDoc, Flashcards, Patient Information), MedQuAD, ChatDoctor-HealthCareMagic-100k, and TsinghuaC3I/UltraMedical-Preference — all accessed via HuggingFace `datasets`.
+## Comparing MLA-with_DAPT_IFT_DPO_Evaluation_70M with GPT-2
+
