@@ -40,38 +40,6 @@ This repo documents an iterative, from-scratch journey through building GPT-styl
 
 ---
 
-## Repo Structure (suggested)
-
-```
-.
-├── data/
-│   ├── build_wikipedia_memmap.py       # tokenize + write .bin + meta.json
-│   ├── build_pubmed_memmap.py          # DAPT corpus builder (PubMed, streaming)
-│   ├── build_ift_dataset.py            # instruction/response pairs + prompt masking
-│   └── build_dpo_dataset.py            # chosen/rejected preference pairs
-├── models/
-│   ├── bigram_char_model.py            # baseline (Section 1)
-│   ├── gpt_bpe_hindi.py                # BPE tokenizer variant (Section 2)
-│   ├── latent_gpt_mha_rmsnorm.py       # memmap + RMSNorm + absolute pos emb (Section 3)
-│   ├── latent_gpt_gqa_rope.py          # GQA + RoPE (Section 4)
-│   ├── latent_gpt_mla.py               # Multi-head Latent Attention, DeepSeek-style (Section 4/5)
-│   └── mini_gpt_swiglu_vk.py           # SwiGLU FFN + V=K attention (Section 4)
-├── train/
-│   ├── train_pretrain.py
-│   ├── train_dapt.py
-│   ├── train_ift.py
-│   └── train_dpo.py
-├── eval/
-│   └── full_evaluation_suite.py        # MMLU, MedMCQA, HumanEval, Pref-Acc, TruthfulQA, Safety, Format
-├── inference/
-│   ├── generate.py
-│   └── generate_from_ckpt.py
-├── checkpoints/                        # (gitignored)
-└── README.md
-```
-
----
-
 ## Experiment Timeline
 
 ### 1. Character-level Bigram baseline (Hindi)
