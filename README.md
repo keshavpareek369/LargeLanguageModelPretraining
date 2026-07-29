@@ -30,12 +30,13 @@ This repo documents an iterative, from-scratch journey through building GPT-styl
 1. Implement a GPT-style transformer **entirely from scratch** (no HuggingFace model classes) to understand every component: tokenization, embeddings, attention, normalization, feed-forward blocks, and the training loop.
 2. Scale from a tiny character-level model to a ~70M parameter transformer trained on 1B+ tokens using `memmap` for memory-efficient data loading.
 3. Explore modern architectural components popularized by recent open LLMs:
+   - **GQA** (Grouped Query Attention)
+   - **MHA** (Multi-Head Attention)
+   - **MLA** (Multi-head Latent Attention, DeepSeek-V2 style, with low-rank Q/KV projections)
    - **RMSNorm** instead of LayerNorm
    - **RoPE** (Rotary Position Embeddings) instead of learned absolute position embeddings
-   - **GQA** (Grouped Query Attention)
-   - **MLA** (Multi-head Latent Attention, DeepSeek-V2 style, with low-rank Q/KV projections)
    - **SwiGLU** feed-forward blocks
-4. Build a complete, reproducible **LLM training pipeline** (not just pretraining) for a medical-domain assistant:
+5. Build a complete, reproducible **LLM training pipeline** (not just pretraining) for a medical-domain assistant:
    `Wikipedia pretraining → Domain-Adaptive Pretraining (PubMed) → Instruction Fine-Tuning (medical QA) → DPO alignment → Full capability + alignment evaluation`.
 
 ---
