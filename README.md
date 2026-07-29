@@ -70,12 +70,12 @@ This repo documents an iterative, from-scratch journey through building GPT-styl
     
 | Variant | Key idea | Params | Final Val Loss | Val PPL | Training time | Iteration | GPU | Total Tokens |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **MHA_70M** | Standard multi-head attention | ~70.6M | 3.5580 | 35.09 | 9h 37m 11s | 75k | Tesla P100-PCIE-16GB | ~1.2B |
-| **GQA_68M** | Grouped-Query Attention | 68.0M | 3.3109 | 27.41 | 9h 56m 31s |  75k | Tesla P100-PCIE-16GB | ~1.2B |
-| **MLA_70M** | DeepSeek-style Q/KV compression | 69.9M | 3.2922 | 26.90 | 11h 18m 35s | 75k | Tesla P100-PCIE-16GB | ~1.2B |
-| **K=V_attention** | Shared Key and Value vectors | 75M | - | - | 45m | 45k | Tesla P100-PCIE-16GB | ~1.2B |
-| **Hindi-bytepair-LLM** | Custom BPE tokenizer for Hindi | 71.86M | 4.0870 | 59.56 | 6h 26m 39s | 80k | Tesla P100-PCIE-16GB | ~45.6M |
-| **Hindi-char-llm** | Character-level GPT for Hindi | 4.9M | 1.3630 | 1.3630 | 23m 30s | 12k | Tesla P100-PCIE-16GB | - |
+| **MHA_70M** | Standard multi-head attention| ~70.6M| 3.5580| 35.09| 9h 37m 11s| 75k| Tesla P100-PCIE-16GB| ~1.2B|
+| **GQA_68M** | Grouped-Query Attention | 68.0M| 3.3109| 27.41| 9h 56m 31s|  75k| Tesla P100-PCIE-16GB| ~1.2B|
+| **MLA_70M** | DeepSeek-style Q/KV compression| 69.9M| 3.2922| 26.90| 11h 18m 35s| 75k| Tesla P100-PCIE-16GB| ~1.2B|
+| **K=V_attention** | Shared Key and Value vectors| 75M| - | -| 45m | 45k | Tesla P100-PCIE-16GB | ~1.2B|
+| **Hindi-bytepair-LLM** | Custom BPE tokenizer for Hindi| 71.86M| 4.0870 | 59.56 | 6h 26m 39s | 80k | Tesla P100-PCIE-16GB| ~45.6M |
+| **Hindi-char-llm** | Character-level GPT for Hindi| 4.9M| 1.3630| 1.3630 | 23m 30s| 12k| Tesla P100-PCIE-16GB | -|
 
 ## Comparing MLA-with_DAPT_IFT_DPO_Evaluation_70M with GPT-2
 
